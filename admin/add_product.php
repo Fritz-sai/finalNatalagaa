@@ -36,32 +36,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$stock = (int)post('stock', 0);
 	$imagePath = $editing['image'] ?? 'images/placeholder.png';
 
+	// Character limits to keep product card layout consistent
+	$MAX_NAME = 40; // characters
+	$MAX_DESCRIPTION = 100; // characters
+
 	// Validate
 	if ($name === '' || $price <= 0 || $description === '') {
 		$error = 'Please fill in all required fields.';
+	} elseif (mb_strlen($name) > $MAX_NAME) {
+		$error = "Name must be at most {$MAX_NAME} characters.";
+	} elseif (mb_strlen($description) > $MAX_DESCRIPTION) {
+		$error = "Description must be at most {$MAX_DESCRIPTION} characters.";
 	} else {
-		// Handle image upload if provided
-		if (!empty($_FILES['image']['name'])) {
-			$allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/jpg' => 'jpg'];
-			if (!isset($allowed[$_FILES['image']['type']])) {
-				$error = 'Invalid image type. Allowed: JPG, PNG.';
-			} elseif ($_FILES['image']['size'] > 2 * 1024 * 1024) {
-				$error = 'Image too large. Max 2MB.';
-			} else {
-				$ext = $allowed[$_FILES['image']['type']];
-				$fname = 'admin/assets/uploads/' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-				$abs = __DIR__ . '/../' . $fname; // admin/ + ../ => project root
-				$dir = dirname($abs);
-				if (!is_dir($dir)) {
-					mkdir($dir, 0777, true);
-				}
-				if (move_uploaded_file($_FILES['image']['tmp_name'], $abs)) {
-					$imagePath = $fname;
+			// Handle image upload if provided — allow large files but auto-resize
+			if (!empty($_FILES['image']['name'])) {
+				$allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/jpg' => 'jpg'];
+				$mime = $_FILES['image']['type'];
+				if (!isset($allowed[$mime])) {
+					$error = 'Invalid image type. Allowed: JPG, PNG.';
 				} else {
-					$error = 'Failed to upload image.';
+					$ext = $allowed[$mime];
+					$fname = 'admin/assets/uploads/' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+					$abs = __DIR__ . '/../' . $fname; // admin/ + ../ => project root
+					$dir = dirname($abs);
+					if (!is_dir($dir)) {
+						mkdir($dir, 0777, true);
+					}
+
+					// Move uploaded file to temp location first
+					$tmp = $_FILES['image']['tmp_name'];
+					// Resize if dimensions exceed MAX_DIM or file is very large
+					$MAX_DIM = 1600; // max width/height in px
+					$JPEG_QUALITY = 85; // server-side jpeg quality
+
+					// Attempt to get image size
+					$size = @getimagesize($tmp);
+					if ($size === false) {
+						// Not a valid image
+						$error = 'Uploaded file is not a valid image.';
+					} else {
+						$width = $size[0];
+						$height = $size[1];
+						$shouldResize = ($width > $MAX_DIM || $height > $MAX_DIM);
+
+						if ($shouldResize) {
+							// Resize using GD
+							$srcImg = null;
+							if ($ext === 'jpg') {
+								$srcImg = @imagecreatefromjpeg($tmp);
+							} elseif ($ext === 'png') {
+								$srcImg = @imagecreatefrompng($tmp);
+							}
+							if (!$srcImg) {
+								// fallback: just move without resizing
+								if (move_uploaded_file($tmp, $abs)) {
+									$imagePath = $fname;
+								} else {
+									$error = 'Failed to upload image.';
+								}
+							} else {
+								$scale = min($MAX_DIM / $width, $MAX_DIM / $height);
+								$newW = max(1, (int)floor($width * $scale));
+								$newH = max(1, (int)floor($height * $scale));
+								$dst = imagecreatetruecolor($newW, $newH);
+								// preserve PNG transparency
+								if ($ext === 'png') {
+									imagealphablending($dst, false);
+									imagesavealpha($dst, true);
+									$transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+									imagefilledrectangle($dst, 0, 0, $newW, $newH, $transparent);
+								}
+								imagecopyresampled($dst, $srcImg, 0, 0, 0, 0, $newW, $newH, $width, $height);
+								// Save resized image
+								if ($ext === 'jpg') {
+									if (imagejpeg($dst, $abs, $JPEG_QUALITY)) {
+										$imagePath = $fname;
+									} else {
+										$error = 'Failed to save resized image.';
+									}
+								} else {
+									// PNG: use compression level 6
+									if (imagepng($dst, $abs, 6)) {
+										$imagePath = $fname;
+									} else {
+										$error = 'Failed to save resized image.';
+									}
+								}
+								imagedestroy($srcImg);
+								imagedestroy($dst);
+							}
+						} else {
+							// No resizing needed; move file
+							if (move_uploaded_file($tmp, $abs)) {
+								$imagePath = $fname;
+							} else {
+								$error = 'Failed to upload image.';
+							}
+						}
+					}
 				}
 			}
-		}
 	}
 
 	if ($error === '') {
@@ -487,7 +561,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			<div class="form-grid">
 				<div>
 					<div class="label">Name</div>
-					<input class="input" type="text" name="name" required value="<?php echo htmlspecialchars($editing['name'] ?? ''); ?>">
+					<input id="productName" class="input" type="text" name="name" required maxlength="20" value="<?php echo htmlspecialchars($editing['name'] ?? ''); ?>">
+					<div style="margin-top:6px;font-size:0.9rem;color:var(--muted)"><span id="nameCount"><?php echo isset($editing['name']) ? mb_strlen($editing['name']) : 0; ?></span>/40</div>
 				</div>
 				<div>
 					<div class="label">Price (USD)</div>
@@ -520,7 +595,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 				<div class="full">
 					<div class="label">Description</div>
-					<textarea class="input" name="description" required style="width: 95%;"><?php echo htmlspecialchars($editing['description'] ?? ''); ?></textarea>
+					<textarea id="productDescription" class="input" name="description" required maxlength="100" style="width: 95%;"><?php echo htmlspecialchars($editing['description'] ?? ''); ?></textarea>
+					<div style="margin-top:6px;font-size:0.9rem;color:var(--muted)"><span id="descCount"><?php echo isset($editing['description']) ? mb_strlen($editing['description']) : 0; ?></span>/100</div>
 				</div>
 
 				<div class="full">
@@ -533,7 +609,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 							</div>
 							<div class="file-upload-text">
 								<strong>Click to upload or drag and drop</strong>
-								<span class="hint">JPG or PNG (Max 2MB)</span>
+								<span class="hint">JPG or PNG — large images will be auto-resized</span>
 							</div>
 						</label>
 					</div>
@@ -550,8 +626,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 							<?php endif; ?>
 						</div>
 						<div class="preview-info">
-							<strong><?php echo htmlspecialchars($editing['name'] ?? 'Product Name'); ?></strong>
-							<div><?php echo htmlspecialchars(mb_strimwidth($editing['description'] ?? 'Product description will appear here...', 0, 120, '...')); ?></div>
+							<strong id="previewName"><?php echo htmlspecialchars($editing['name'] ?? 'Product Name'); ?></strong>
+							<div id="previewDesc"><?php echo htmlspecialchars(mb_strimwidth($editing['description'] ?? 'Product description will appear here...', 0, 120, '...')); ?></div>
 						</div>
 					</div>
 				</div>
@@ -573,30 +649,86 @@ document.addEventListener('DOMContentLoaded', function() {
 	const noImagePlaceholder = document.getElementById('noImagePlaceholder');
 	
 	if (fileInput && fileUploader) {
-		// Handle file selection
+		// Client-side resize helper
+		function resizeImageFile(file, maxDim, mimeType, quality) {
+			return new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onerror = () => reject(new Error('Failed to read file'));
+				reader.onload = function(evt) {
+					const img = new Image();
+					img.onload = function() {
+						let width = img.naturalWidth;
+						let height = img.naturalHeight;
+						const scale = Math.min(1, maxDim / Math.max(width, height));
+						const newW = Math.max(1, Math.round(width * scale));
+						const newH = Math.max(1, Math.round(height * scale));
+						const canvas = document.createElement('canvas');
+						canvas.width = newW;
+						canvas.height = newH;
+						const ctx = canvas.getContext('2d');
+						ctx.drawImage(img, 0, 0, newW, newH);
+						const outType = mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+						canvas.toBlob(function(blob) {
+							if (!blob) return reject(new Error('Canvas is empty'));
+							const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, '') + (outType === 'image/png' ? '.png' : '.jpg'), { type: outType });
+							resolve(newFile);
+						}, outType, (outType === 'image/png') ? 0.9 : (quality || 0.85));
+					};
+					img.onerror = () => reject(new Error('Invalid image'));
+					img.src = evt.target.result;
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		// Handle file selection (resize before preview/upload)
 		fileInput.addEventListener('change', function(e) {
 			const file = e.target.files[0];
-			if (file) {
+			if (!file) return;
+			const MAX_CLIENT_DIM = 1600;
+			const mime = file.type;
+			// Resize on client when needed
+			resizeImageFile(file, MAX_CLIENT_DIM, mime, 0.85).then(function(resizedFile) {
+				// Replace the File input's files with the resized file
+				try {
+					const dt = new DataTransfer();
+					dt.items.add(resizedFile);
+					fileInput.files = dt.files;
+				} catch (err) {
+					// If DataTransfer not supported, continue with original file
+				}
+				const url = URL.createObjectURL(resizedFile);
+				if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
+				if (previewImage) {
+					previewImage.src = url;
+					previewImage.style.display = 'block';
+				} else {
+					const imgEl = document.createElement('img');
+					imgEl.id = 'previewImage';
+					imgEl.src = url;
+					imgEl.alt = 'Product preview';
+					imgEl.style.display = 'block';
+					noImagePlaceholder.parentElement.replaceChild(imgEl, noImagePlaceholder);
+				}
+			}).catch(function() {
+				// If resizing fails, fallback to showing original file
 				const reader = new FileReader();
-				reader.onload = function(e) {
-					if (noImagePlaceholder) {
-						noImagePlaceholder.style.display = 'none';
-					}
+				reader.onload = function(evt) {
+					if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
 					if (previewImage) {
-						previewImage.src = e.target.result;
+						previewImage.src = evt.target.result;
 						previewImage.style.display = 'block';
 					} else {
-						// Create image element if it doesn't exist
-						const img = document.createElement('img');
-						img.id = 'previewImage';
-						img.src = e.target.result;
-						img.alt = 'Product preview';
-						img.style.display = 'block';
-						noImagePlaceholder.parentElement.replaceChild(img, noImagePlaceholder);
+						const imgEl = document.createElement('img');
+						imgEl.id = 'previewImage';
+						imgEl.src = evt.target.result;
+						imgEl.alt = 'Product preview';
+						imgEl.style.display = 'block';
+						noImagePlaceholder.parentElement.replaceChild(imgEl, noImagePlaceholder);
 					}
 				};
 				reader.readAsDataURL(file);
-			}
+			});
 		});
 		
 		// Handle drag and drop
@@ -616,10 +748,66 @@ document.addEventListener('DOMContentLoaded', function() {
 			
 			const file = e.dataTransfer.files[0];
 			if (file && file.type.startsWith('image/')) {
-				fileInput.files = e.dataTransfer.files;
-				fileInput.dispatchEvent(new Event('change'));
+				// Resize the dropped file and then set to file input
+				const MAX_CLIENT_DIM = 1600;
+				resizeImageFile(file, MAX_CLIENT_DIM, file.type, 0.85).then(function(resizedFile) {
+					try {
+						const dt = new DataTransfer();
+						dt.items.add(resizedFile);
+						fileInput.files = dt.files;
+					} catch (err) {
+						// ignore
+					}
+					fileInput.dispatchEvent(new Event('change'));
+				}).catch(function() {
+					// fallback
+					fileInput.files = e.dataTransfer.files;
+					fileInput.dispatchEvent(new Event('change'));
+				});
 			}
 		});
+	}
+	// --- Character counters and live preview for name & description ---
+	const nameInput = document.getElementById('productName');
+	const descInput = document.getElementById('productDescription');
+	const nameCount = document.getElementById('nameCount');
+	const descCount = document.getElementById('descCount');
+	const previewNameEl = document.getElementById('previewName');
+	const previewDescEl = document.getElementById('previewDesc');
+
+	const PREVIEW_DESC_LIMIT = 120;
+	const MAX_NAME_JS = 60;
+	const MAX_DESC_JS = 300;
+
+	function updateName() {
+		if (!nameInput) return;
+		const v = nameInput.value || '';
+		if (nameCount) nameCount.textContent = v.length;
+		if (previewNameEl) previewNameEl.textContent = v.trim() === '' ? 'Product Name' : v;
+	}
+
+	function updateDesc() {
+		if (!descInput) return;
+		const v = descInput.value || '';
+		if (descCount) descCount.textContent = v.length;
+		if (previewDescEl) {
+			if (v.length <= PREVIEW_DESC_LIMIT) {
+				previewDescEl.textContent = v.trim() === '' ? 'Product description will appear here...' : v;
+			} else {
+				previewDescEl.textContent = v.slice(0, PREVIEW_DESC_LIMIT) + '...';
+			}
+		}
+	}
+
+	if (nameInput) {
+		nameInput.addEventListener('input', updateName);
+		// Initialize
+		updateName();
+	}
+	if (descInput) {
+		descInput.addEventListener('input', updateDesc);
+		// Initialize
+		updateDesc();
 	}
 });
 </script>

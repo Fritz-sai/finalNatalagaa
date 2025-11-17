@@ -235,7 +235,7 @@ renderFlashMessages([
             <article class="service-card">
                 <h3><?php echo htmlspecialchars($service['title']); ?></h3>
                 <p><?php echo htmlspecialchars($service['description']); ?></p>
-                <span class="price">Starting at $<?php echo number_format($service['price'], 2); ?></span>
+                <span class="price">Starting at ₱<?php echo number_format($service['price'], 2); ?></span>
                 <a class="btn-outline" href="booking.php">Book Now</a>
             </article>
         <?php endforeach; ?>
