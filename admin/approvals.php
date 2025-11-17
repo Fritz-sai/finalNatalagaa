@@ -1,18 +1,154 @@
 <?php
-require_once __DIR__ . '/includes/header.php';
-require_once __DIR__ . '/includes/sidebar.php';
+/**
+ * Approvals Page - Handle Order and Booking Approvals
+ * 
+ * Handle form submissions (redirects) BEFORE any output is sent
+ * This prevents "headers already sent" errors
+ */
 
-$flash = pull_admin_flash();
-
+// Handle POST requests BEFORE including header.php (which outputs HTML)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+	// Get database connection and authentication functions
+	require_once __DIR__ . '/includes/functions.php';
+	
+	// Ensure user is admin before allowing approvals (security check)
+	ensure_admin();
 	$type = post('type');
 	$id = (int)post('id');
 	$action = post('action');
 	$reason = trim((string)post('reason', ''));
 
-	// ... (handle approvals/rejections logic - unchanged)
-	// (Keep your original approval/rejection logic here)
+	// Validate inputs
+	if ($id > 0 && in_array($type, ['order', 'booking']) && in_array($action, ['approve', 'reject'])) {
+		
+		if ($type === 'order') {
+			// Handle order approval/rejection
+			if ($action === 'approve') {
+				// Change order status from 'pending' to 'processing'
+				// This removes it from pending list automatically
+				$stmt = $conn->prepare("UPDATE orders SET status = 'processing' WHERE id = ? AND status = 'pending'");
+				$stmt->bind_param('i', $id);
+				if ($stmt->execute()) {
+					// Get order details for notification
+					$orderStmt = $conn->prepare("SELECT user_id, product_id FROM orders WHERE id = ?");
+					$orderStmt->bind_param('i', $id);
+					$orderStmt->execute();
+					$orderResult = $orderStmt->get_result();
+					$order = $orderResult ? $orderResult->fetch_assoc() : null;
+					$orderStmt->close();
+					
+					// Create notification for user
+					if ($order) {
+						createNotification($conn, (int)$order['user_id'], 'Order Approved', 'Your order has been approved and is now being processed!', 'order', (int)$order['product_id']);
+					}
+					
+					set_admin_flash('success', 'Order approved successfully. It has been removed from pending list.');
+				} else {
+					set_admin_flash('error', 'Failed to approve order.');
+				}
+				$stmt->close();
+			} elseif ($action === 'reject') {
+				// Reject order: change status to 'cancelled' and add reason
+				if ($reason === '') {
+					set_admin_flash('error', 'Rejection reason is required.');
+				} else {
+					$stmt = $conn->prepare("UPDATE orders SET status = 'cancelled', status_message = ? WHERE id = ? AND status = 'pending'");
+					$stmt->bind_param('si', $reason, $id);
+					if ($stmt->execute()) {
+						// Get order details for notification
+						$orderStmt = $conn->prepare("SELECT user_id, product_id FROM orders WHERE id = ?");
+						$orderStmt->bind_param('i', $id);
+						$orderStmt->execute();
+						$orderResult = $orderStmt->get_result();
+						$order = $orderResult ? $orderResult->fetch_assoc() : null;
+						$orderStmt->close();
+						
+						// Create notification for user
+						if ($order) {
+							createNotification($conn, (int)$order['user_id'], 'Order Rejected', 'Your order has been rejected. Reason: ' . $reason, 'order', (int)$order['product_id']);
+						}
+						
+						set_admin_flash('success', 'Order rejected. It has been removed from pending list.');
+					} else {
+						set_admin_flash('error', 'Failed to reject order.');
+					}
+					$stmt->close();
+				}
+			}
+		} elseif ($type === 'booking') {
+			// Handle booking approval/rejection
+			if ($action === 'approve') {
+				// Approve booking: change status from 'pending' to 'confirmed' or 'approved'
+				// Check if 'confirmed' status exists, otherwise use 'approved' or keep as 'pending' with a flag
+				$stmt = $conn->prepare("UPDATE bookings SET status = 'confirmed' WHERE id = ? AND status = 'pending'");
+				if (!$stmt) {
+					// If 'confirmed' doesn't exist, try 'approved'
+					$stmt = $conn->prepare("UPDATE bookings SET status = 'approved' WHERE id = ? AND status = 'pending'");
+				}
+				if ($stmt) {
+					$stmt->bind_param('i', $id);
+					if ($stmt->execute()) {
+						// Get booking details for notification
+						$bookingStmt = $conn->prepare("SELECT user_id FROM bookings WHERE id = ?");
+						$bookingStmt->bind_param('i', $id);
+						$bookingStmt->execute();
+						$bookingResult = $bookingStmt->get_result();
+						$booking = $bookingResult ? $bookingResult->fetch_assoc() : null;
+						$bookingStmt->close();
+						
+						// Create notification for user
+						if ($booking && isset($booking['user_id'])) {
+							createNotification($conn, (int)$booking['user_id'], 'Booking Approved', 'Your booking has been approved!', 'booking', $id);
+						}
+						
+						set_admin_flash('success', 'Booking approved successfully.');
+					} else {
+						set_admin_flash('error', 'Failed to approve booking.');
+					}
+					$stmt->close();
+				}
+			} elseif ($action === 'reject') {
+				// Reject booking: change status to 'cancelled' and add reason
+				if ($reason === '') {
+					set_admin_flash('error', 'Rejection reason is required.');
+				} else {
+					$stmt = $conn->prepare("UPDATE bookings SET status = 'cancelled', status_message = ? WHERE id = ? AND status = 'pending'");
+					$stmt->bind_param('si', $reason, $id);
+					if ($stmt->execute()) {
+						// Get booking details for notification
+						$bookingStmt = $conn->prepare("SELECT user_id FROM bookings WHERE id = ?");
+						$bookingStmt->bind_param('i', $id);
+						$bookingStmt->execute();
+						$bookingResult = $bookingStmt->get_result();
+						$booking = $bookingResult ? $bookingResult->fetch_assoc() : null;
+						$bookingStmt->close();
+						
+						// Create notification for user
+						if ($booking && isset($booking['user_id'])) {
+							createNotification($conn, (int)$booking['user_id'], 'Booking Rejected', 'Your booking has been rejected. Reason: ' . $reason, 'booking', $id);
+						}
+						
+						set_admin_flash('success', 'Booking rejected.');
+					} else {
+						set_admin_flash('error', 'Failed to reject booking.');
+					}
+					$stmt->close();
+				}
+			}
+		}
+		
+		// Redirect to refresh the page and show updated list (without the approved/rejected item)
+		// Redirect BEFORE including header.php (which outputs HTML)
+		header("Location: approvals.php");
+		exit; // Always exit after redirect to prevent further execution
+	}
 }
+
+// Now include header and sidebar (these output HTML)
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/sidebar.php';
+
+$flash = pull_admin_flash();
 
 // Fetch pending bookings (awaiting approval)
 $pendingBookings = [];

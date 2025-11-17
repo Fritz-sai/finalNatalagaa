@@ -14,10 +14,8 @@ if (!isset($_SESSION['cart'])) {
 
 switch ($action) {
     case 'update_delivery':
-        $deliveryOption = $_POST['delivery_option'] ?? 'pickup';
-        if (in_array($deliveryOption, ['pickup', 'delivery'])) {
-            $_SESSION['delivery_option'] = $deliveryOption;
-        }
+        // Store pickup only - always set to pickup
+        $_SESSION['delivery_option'] = 'pickup';
         break;
 
     case 'add':
@@ -106,9 +104,9 @@ switch ($action) {
             exit;
         }
 
-        // Get delivery option and shipping fee from POST (or session as fallback)
-        $deliveryOption = $_POST['delivery_option'] ?? $_SESSION['delivery_option'] ?? 'pickup';
-        $shippingFee = isset($_POST['shipping_fee']) ? (float) $_POST['shipping_fee'] : 0;
+        // Store pickup only - no delivery option needed
+        $deliveryOption = 'pickup'; // Always store pickup
+        $shippingFee = 0; // No shipping fee for store pickup
         $orderTotal = isset($_POST['total']) ? (float) $_POST['total'] : 0;
 
         // Store delivery info in session for reference

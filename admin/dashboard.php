@@ -31,6 +31,11 @@ $bMonth->close();
 
 $ordersTotal = $conn->query("SELECT COUNT(*) c FROM orders WHERE status != 'cancelled' AND order_status != 'cancelled'")->fetch_assoc()['c'] ?? 0;
 $usersTotal = $conn->query("SELECT COUNT(*) c FROM users WHERE COALESCE(active,1)=1")->fetch_assoc()['c'] ?? 0;
+
+// Get pending approvals (orders and bookings awaiting approval)
+$pendingOrdersCount = $conn->query("SELECT COUNT(*) c FROM orders WHERE status = 'pending'")->fetch_assoc()['c'] ?? 0;
+$pendingBookingsCount = $conn->query("SELECT COUNT(*) c FROM bookings WHERE status = 'pending'")->fetch_assoc()['c'] ?? 0;
+$totalPendingApprovals = $pendingOrdersCount + $pendingBookingsCount;
 ?>
 
 <!-- MODERN ADMIN DASHBOARD CSS START -->
@@ -126,6 +131,25 @@ body {
   margin-left: .6rem;
   text-shadow: 0 0 8px #00ff6a35;
 }
+.stat-card.approval-card {
+  background: linear-gradient(145deg,#ffd70015 85%,#ffaa0011 100%);
+  border: 1.5px solid #ffaa0044;
+  cursor: pointer;
+  text-decoration: none;
+}
+.stat-card.approval-card:hover {
+  box-shadow: 0 18px 44px #ffaa0041;
+  border-color: #ffaa0072;
+}
+.stat-card.approval-card .stat-title {
+  color: #ffaa00;
+}
+.stat-card.approval-card .icon {
+  color: #ffaa00;
+}
+.stat-card.approval-card .stat-value {
+  color: #ffd700;
+}
 @media (max-width: 1020px) {
   .dashboard-grid { padding: 0 0.5vw; gap: 1.1rem 0.7rem; }
   .stat-card { border-radius: 1rem; padding: 1.15rem 1rem 0.82rem; }
@@ -174,6 +198,21 @@ body {
       <div class="stat-title"><i class="fa-solid fa-users icon"></i> Total Users</div>
       <div class="stat-value"><?php echo (int)$usersTotal; ?></div>
     </div>
+    
+    <!-- Approvals Section - Pending Orders and Bookings -->
+    <a href="approvals.php" class="stat-card approval-card" style="text-decoration: none; color: inherit;">
+      <div class="stat-title"><i class="fa-solid fa-clipboard-check icon"></i> Pending Approvals</div>
+      <div class="stat-value"><?php echo (int)$totalPendingApprovals; ?></div>
+      <div class="stat-sub">
+        <span>Pending Orders: <span class="highlight" style="color: #ffaa00;"><?php echo (int)$pendingOrdersCount; ?></span></span>
+      </div>
+      <div class="stat-sub">
+        <span>Pending Bookings: <span class="highlight" style="color: #ffaa00;"><?php echo (int)$pendingBookingsCount; ?></span></span>
+      </div>
+      <div class="stat-sub" style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.7;">
+        <i class="fa-solid fa-arrow-right"></i> Click to review
+      </div>
+    </a>
   </section>
 </main>
 

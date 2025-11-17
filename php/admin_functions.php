@@ -36,13 +36,61 @@ function getAllBookings(mysqli $conn): array
     return $bookings;
 }
 
-function getProducts(mysqli $conn): array
+/**
+ * Get Products from Database
+ * 
+ * Retrieves all products from the database, with optional search filtering.
+ * If a search term is provided, it searches in product name and description fields.
+ * 
+ * @param mysqli $conn Database connection object
+ * @param string|null $search Optional search term to filter products (searches name and description)
+ * @return array Array of product records from the database, ordered by creation date (newest first)
+ */
+function getProducts(mysqli $conn, ?string $search = null): array
 {
-    $result = $conn->query('SELECT * FROM products ORDER BY created_at DESC');
-    $products = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-    if ($result) {
-        $result->close();
+    // Check if search term is provided and not empty (after trimming whitespace)
+    if ($search && trim($search) !== '') {
+        // Prepare search term for SQL LIKE query: add wildcards (%) before and after the search term
+        // This allows matching products that contain the search term anywhere in name or description
+        // Example: "phone" becomes "%phone%" which matches "iPhone", "Phone Case", etc.
+        $searchTerm = '%' . trim($search) . '%';
+        
+        // Prepare SQL query with placeholders (?) to prevent SQL injection attacks
+        // LIKE ? searches for the search term in name or description fields
+        // ORDER BY created_at DESC sorts products by creation date (newest first)
+        $stmt = $conn->prepare('SELECT * FROM products WHERE name LIKE ? OR description LIKE ? ORDER BY created_at DESC');
+        
+        // Bind parameters: 'ss' means two string parameters (both are the search term)
+        // The search term is used twice: once for name search, once for description search
+        $stmt->bind_param('ss', $searchTerm, $searchTerm);
+        
+        // Execute the prepared statement with the bound parameters
+        $stmt->execute();
+        
+        // Get the result set from the executed query
+        $result = $stmt->get_result();
+        
+        // Fetch all rows as associative array (column names as array keys)
+        // If query fails, return empty array instead of null
+        $products = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+        
+        // Close the prepared statement to free up memory and database resources
+        $stmt->close();
+    } else {
+        // No search term provided: fetch all products
+        // Using direct query (no prepared statement needed since there are no user inputs)
+        $result = $conn->query('SELECT * FROM products ORDER BY created_at DESC');
+        
+        // Fetch all products as associative array
+        $products = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+        
+        // Close the result set if it exists
+        if ($result) {
+            $result->close();
+        }
     }
+    
+    // Return the array of products
     return $products;
 }
 

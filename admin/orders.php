@@ -1,6 +1,9 @@
 <?php
-require_once __DIR__ . '/includes/header.php';
-require_once __DIR__ . '/includes/sidebar.php';
+// Include core admin functions (no output)
+require_once __DIR__ . '/includes/functions.php';
+
+// Ensure user is admin before proceeding
+ensure_admin();
 
 // Status update (simple - no proof requirement)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'update_status') {
@@ -14,10 +17,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'update_status')
 		$stmt->close();
 		set_admin_flash('success', 'Order status updated successfully.');
 	}
-	 if ($allowed === '') {
-	header("Location: bookings.php");
-	exit;
-	 }
 }
 
 // Separate proof upload action
@@ -76,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'upload_proof') 
 		set_admin_flash('error', $error);
 	}
 	
-	header("Location: /systemFinals/admin/orders.php?" . http_build_query($_GET));
+	header("Location: orders.php?" . http_build_query($_GET));
 	exit;
 }
 
@@ -89,13 +88,15 @@ $types = '';
 if ($dateFrom) { $where .= " AND DATE(order_date) >= ?"; $params[] = $dateFrom; $types .= 's'; }
 if ($dateTo)   { $where .= " AND DATE(order_date) <= ?"; $params[] = $dateTo;   $types .= 's'; }
 
+// Only show orders that have been approved (status = 'processing' or 'completed')
+// Orders with status 'pending' should only appear in approvals.php (awaiting approval)
 $sql = "SELECT o.*, u.name as customer_name, p.name as product_name 
 FROM orders o 
 JOIN users u ON u.id=o.user_id 
 JOIN products p ON p.id=o.product_id
 WHERE $where 
-  AND o.status != 'cancelled' 
-  AND o.order_status != 'cancelled'
+  AND o.status IN ('processing', 'completed')  -- Only show approved orders (excludes 'pending' and 'cancelled')
+  AND o.order_status != 'cancelled'  -- Exclude cancelled order_status
   AND NOT (o.order_status = 'delivered' AND o.proof_image IS NOT NULL AND o.proof_image != '' AND LENGTH(TRIM(o.proof_image)) > 0)
 ORDER BY o.order_date DESC";
 
@@ -112,6 +113,10 @@ if ($params) {
 	$orders = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 	if ($res) $res->close();
 }
+
+// Include layout files after processing (these output HTML)
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/sidebar.php';
 ?>
 
 <!DOCTYPE html>
@@ -308,7 +313,7 @@ if ($params) {
 			<label>From <input class="input" style="width: 80%;" type="date" name="from" value="<?php echo htmlspecialchars($dateFrom ?? ''); ?>"></label>
 			<label>To <input class="input" style="width: 80%;" type="date" name="to" value="<?php echo htmlspecialchars($dateTo ?? ''); ?>"></label>
 			<button class="btn btn-primary" style="margin-top: 18px;" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>
-			<a class="btn btn-outline" style="margin-top: 18px;" href="/systemFinals/admin/orders.php">Reset</a>
+			
 		</form>
 	</div>
 

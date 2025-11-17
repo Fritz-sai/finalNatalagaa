@@ -1,9 +1,19 @@
 <?php
-require_once __DIR__ . '/includes/header.php';
-require_once __DIR__ . '/includes/sidebar.php';
+/**
+ * Products Management Page
+ * 
+ * Handle form submissions (redirects) BEFORE any output is sent
+ * This prevents "headers already sent" errors
+ */
 
-// Handle delete
+// Handle delete - MUST be before any output or includes that output HTML
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_product') {
+    // Get database connection and authentication (needed for delete operation)
+    require_once __DIR__ . '/includes/functions.php';
+    
+    // Ensure user is admin before allowing delete (security check)
+    ensure_admin();
+    
     $id = (int)($_POST['id'] ?? 0);
     if ($id > 0) {
         // Check if product exists before deleting
@@ -20,9 +30,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             $stmt->close();
         }
     }
-    header("Location: /systemFinals/admin/products.php");
-    exit;
+    // Redirect BEFORE including header.php (which outputs HTML)
+    // Use relative path to avoid issues with different server configurations
+    header("Location: products.php");
+    exit; // Always exit after redirect to prevent further execution
 }
+
+// Now include header and sidebar (these output HTML)
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/sidebar.php';
 
 $result = $conn->query("SELECT id, name, description, price, image, category, stock FROM products ORDER BY created_at DESC");
 $products = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];

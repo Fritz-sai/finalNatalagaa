@@ -7,13 +7,10 @@ foreach ($cart as $item) {
     $subtotal += (float) $item['price'] * (int) $item['quantity'];
 }
 
-// Get delivery option from session
-$deliveryOption = $_SESSION['delivery_option'] ?? 'pickup';
-$shippingFee = 0;
-if ($deliveryOption === 'delivery') {
-    $shippingFee = $subtotal < 1000 ? 100 : 0;
-}
-$total = $subtotal + $shippingFee;
+// Store pickup only - no shipping options
+$deliveryOption = 'pickup'; // Always store pickup
+$shippingFee = 0; // No shipping fee for store pickup
+$total = $subtotal; // Total equals subtotal (no shipping fee)
 
 renderHead('Your Cart | Reboot');
 renderNav();
@@ -450,32 +447,14 @@ body {
                     </table>
                 </div>
 
+                <!-- Store Pickup Only - No shipping options needed -->
                 <div class="delivery-options-section">
-                    <h3 class="delivery-title">Choose shipping mode:</h3>
-                    <form id="delivery-form" action="php/handle_cart.php" method="POST" class="delivery-form">
-                        <input type="hidden" name="action" value="update_delivery">
-                        <div class="delivery-option">
-                            <label class="delivery-label">
-                                <input type="radio" name="delivery_option" value="pickup" <?php echo $deliveryOption === 'pickup' ? 'checked' : ''; ?>>
-                                <span class="delivery-text">
-                                    <strong>Store pickup (In 20 min)</strong> • <span class="delivery-cost">FREE</span>
-                                </span>
-                            </label>
-                        </div>
-                        <div class="delivery-option">
-                            <label class="delivery-label">
-                                <input type="radio" name="delivery_option" value="delivery" <?php echo $deliveryOption === 'delivery' ? 'checked' : ''; ?>>
-                                <span class="delivery-text">
-                                    <strong>Delivery at home (Under 2 - 4 day)</strong> • <span class="delivery-cost" id="shipping-fee-text"><?php echo $shippingFee > 0 ? '₱' . number_format($shippingFee, 2) : 'FREE'; ?></span>
-                                </span>
-                            </label>
-                            <?php if ($deliveryOption === 'delivery'): ?>
-                            <div class="delivery-address">
-                                Delivery address will be collected during checkout
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </form>
+                    <h3 class="delivery-title">Pickup Information:</h3>
+                    <div class="pickup-info">
+                        <p style="color: #b2ffcb; margin: 0; padding: 0.75rem; background: #181a1b; border-radius: 0.6rem; border: 1.5px solid #00ff6a30;">
+                            <strong style="color: #00ff6a;">✓ Store Pickup Only</strong> • Items ready in 20 minutes • <strong style="color: #00ff6a;">FREE</strong>
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -485,18 +464,15 @@ body {
                         <span>SUBTOTAL TTC</span>
                         <strong id="cart-subtotal">₱<?php echo number_format($subtotal, 2); ?></strong>
                     </div>
-                    <div class="summary-row" id="shipping-row" style="<?php echo $deliveryOption === 'pickup' ? 'display: none;' : ''; ?>">
-                        <span>SHIPPING</span>
-                        <strong id="shipping-fee"><?php echo $shippingFee > 0 ? '₱' . number_format($shippingFee, 2) : 'Free'; ?></strong>
-                    </div>
+                    <!-- Shipping row removed - store pickup only -->
                     <div class="summary-row summary-total">
                         <span>TOTAL</span>
                         <strong id="cart-total">₱<?php echo number_format($total, 2); ?></strong>
                     </div>
                     <form action="php/handle_cart.php" method="POST" id="checkout-form" class="checkout-form">
                         <input type="hidden" name="action" value="checkout">
-                        <input type="hidden" name="delivery_option" id="checkout-delivery-option" value="<?php echo htmlspecialchars($deliveryOption); ?>">
-                        <input type="hidden" name="shipping_fee" id="checkout-shipping-fee" value="<?php echo $shippingFee; ?>">
+                        <input type="hidden" name="delivery_option" value="pickup">
+                        <input type="hidden" name="shipping_fee" value="0">
                         <input type="hidden" name="total" id="checkout-total" value="<?php echo $total; ?>">
                         <button type="submit" class="checkout-btn">
                             Checkout
@@ -516,16 +492,9 @@ body {
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const deliveryForm = document.getElementById('delivery-form');
-    const deliveryRadios = document.querySelectorAll('input[name="delivery_option"]');
-    const shippingRow = document.getElementById('shipping-row');
-    const shippingFeeEl = document.getElementById('shipping-fee');
-    const shippingFeeText = document.getElementById('shipping-fee-text');
+    // Store pickup only - no delivery options to handle
     const subtotalEl = document.getElementById('cart-subtotal');
     const totalEl = document.getElementById('cart-total');
-    const checkoutForm = document.getElementById('checkout-form');
-    const checkoutDeliveryOption = document.getElementById('checkout-delivery-option');
-    const checkoutShippingFee = document.getElementById('checkout-shipping-fee');
     const checkoutTotal = document.getElementById('checkout-total');
 
     // Get subtotal by calculating from all items
@@ -586,45 +555,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateShippingAndTotal() {
+        // Store pickup only - no shipping fee
         const subtotal = getSubtotal();
-        const selectedOption = document.querySelector('input[name="delivery_option"]:checked');
-        if (!selectedOption) return;
-        
-        const optionValue = selectedOption.value;
-        let shippingFee = 0;
-        const deliveryOption = selectedOption.closest('.delivery-option');
-        let deliveryAddress = deliveryOption ? deliveryOption.querySelector('.delivery-address') : null;
+        const shippingFee = 0; // Always 0 for store pickup
+        const total = subtotal; // Total equals subtotal (no shipping)
 
-        if (optionValue === 'delivery') {
-            shippingFee = subtotal < 1000 ? 100 : 0;
-            shippingRow.style.display = 'flex';
-            shippingFeeEl.textContent = shippingFee > 0 ? '₱' + shippingFee.toFixed(2) : 'Free';
-            shippingFeeText.textContent = shippingFee > 0 ? '₱' + shippingFee.toFixed(2) : 'FREE';
-            
-            // Show delivery address if it exists
-            if (deliveryAddress) {
-                deliveryAddress.style.display = 'block';
-            } else {
-                // Create delivery address if it doesn't exist
-                const deliveryOptionDiv = selectedOption.closest('.delivery-option');
-                if (deliveryOptionDiv && !deliveryOptionDiv.querySelector('.delivery-address')) {
-                    const addressDiv = document.createElement('div');
-                    addressDiv.className = 'delivery-address';
-                    addressDiv.textContent = 'Delivery address will be collected during checkout';
-                    deliveryOptionDiv.appendChild(addressDiv);
-                }
-            }
-        } else {
-            shippingRow.style.display = 'none';
-            shippingFeeText.textContent = 'FREE';
-            
-            // Hide delivery address
-            if (deliveryAddress) {
-                deliveryAddress.style.display = 'none';
-            }
-        }
-
-        const total = subtotal + shippingFee;
+        // Update total display
         totalEl.textContent = '₱' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
         // Update checkout button total
@@ -633,25 +569,9 @@ document.addEventListener('DOMContentLoaded', () => {
             checkoutTotalSpan.textContent = '₱' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
-        // Update hidden fields for checkout
-        checkoutDeliveryOption.value = optionValue;
-        checkoutShippingFee.value = shippingFee;
+        // Update hidden field for checkout (total = subtotal, no shipping)
         checkoutTotal.value = total;
     }
-
-    // Handle delivery option change
-    let isUpdating = false;
-    deliveryRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
-            if (isUpdating) return;
-            updateShippingAndTotal();
-            // Auto-submit to save selection in session (with small delay to show update)
-            isUpdating = true;
-            setTimeout(() => {
-                deliveryForm.submit();
-            }, 100);
-        });
-    });
 
     // Handle quantity changes
     const quantityInputs = document.querySelectorAll('.quantity-input');
@@ -694,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Initial calculation on page load
+    // Initial calculation on page load (for store pickup only)
     updateShippingAndTotal();
 });
 </script>
