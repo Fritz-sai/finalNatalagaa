@@ -2,12 +2,12 @@
 require_once __DIR__ . '/php/helpers.php';
 
 $services = [
-    ['title' => 'Screen Replacement', 'description' => 'Cracked or shattered screen? We use premium glass replacements with original feel.', 'price' => 129.99],
-    ['title' => 'Battery Replacement', 'description' => 'Restore battery life and performance with genuine replacements.', 'price' => 89.99],
-    ['title' => 'Water Damage Treatment', 'description' => 'Complete device diagnostics and ultrasonic cleaning to revive water-damaged phones.', 'price' => 149.99],
-    ['title' => 'Charging Port Repair', 'description' => 'Fix loose or unresponsive charging ports and restore fast charging.', 'price' => 79.99],
-    ['title' => 'Speaker & Mic Repair', 'description' => 'Crystal clear audio for calls, music, and voice assistants.', 'price' => 69.99],
-    ['title' => 'Software Optimization', 'description' => 'Speed tune-ups, data backup, and malware removal.', 'price' => 49.99]
+    ['title' => 'Screen Replacement', 'description' => 'Cracked or shattered screen? We use premium glass replacements with original feel.', 'price' => 1000],
+    ['title' => 'Battery Replacement', 'description' => 'Restore battery life and performance with genuine replacements.', 'price' => 1000],
+    ['title' => 'Water Damage Treatment', 'description' => 'Complete device diagnostics and ultrasonic cleaning to revive water-damaged phones.', 'price' => 1000],
+    ['title' => 'Charging Port Repair', 'description' => 'Fix loose or unresponsive charging ports and restore fast charging.', 'price' => 1000],
+    ['title' => 'Speaker & Mic Repair', 'description' => 'Crystal clear audio for calls, music, and voice assistants.', 'price' => 1000],
+    ['title' => 'Software Optimization', 'description' => 'Speed tune-ups, data backup, and malware removal.', 'price' => 1000]
 ];
 
 renderHead('Services | Reboot');

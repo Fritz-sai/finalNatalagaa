@@ -37,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$imagePath = $editing['image'] ?? 'images/placeholder.png';
 
 	// Character limits to keep product card layout consistent
-	$MAX_NAME = 40; // characters
-	$MAX_DESCRIPTION = 100; // characters
+	$MAX_NAME = 100; // characters
+	$MAX_DESCRIPTION = 200; // characters
 
 	// Validate
 	if ($name === '' || $price <= 0 || $description === '') {
@@ -141,7 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	if ($error === '') {
 		if ($editing) {
 			$stmt = $conn->prepare("UPDATE products SET name=?, description=?, price=?, image=?, category=?, stock=? WHERE id=?");
-			$stmt->bind_param('ssdsiii', $name, $description, $price, $imagePath, $category, $stock, $editingId);
+			// types: s(name), s(description), d(price), s(image), s(category), i(stock), i(id)
+			$stmt->bind_param('ssdssii', $name, $description, $price, $imagePath, $category, $stock, $editingId);
 			if ($stmt->execute()) {
 				$stmt->close();
 			} else {
@@ -149,7 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			}
 		} else {
 			$stmt = $conn->prepare("INSERT INTO products (name, description, price, image, category, stock) VALUES (?, ?, ?, ?, ?, ?)");
-			$stmt->bind_param('ssdsii', $name, $description, $price, $imagePath, $category, $stock);
+			// types: s(name), s(description), d(price), s(image), s(category), i(stock)
+			$stmt->bind_param('ssdssi', $name, $description, $price, $imagePath, $category, $stock);
 			if ($stmt->execute()) {
 				$stmt->close();
 			} else {
@@ -561,11 +563,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			<div class="form-grid">
 				<div>
 					<div class="label">Name</div>
-					<input id="productName" class="input" type="text" name="name" required maxlength="20" value="<?php echo htmlspecialchars($editing['name'] ?? ''); ?>">
-					<div style="margin-top:6px;font-size:0.9rem;color:var(--muted)"><span id="nameCount"><?php echo isset($editing['name']) ? mb_strlen($editing['name']) : 0; ?></span>/40</div>
+					<input id="productName" class="input" type="text" name="name" required maxlength="100" value="<?php echo htmlspecialchars($editing['name'] ?? ''); ?>">
+					<div style="margin-top:6px;font-size:0.9rem;color:var(--muted)"><span id="nameCount"><?php echo isset($editing['name']) ? mb_strlen($editing['name']) : 0; ?></span>/100</div>
 				</div>
 				<div>
-					<div class="label">Price (USD)</div>
+					<div class="label">Price</div>
 					<input class="input" type="number" name="price" step="0.01" min="0" required value="<?php echo htmlspecialchars($editing['price'] ?? ''); ?>">
 				</div>
 
@@ -595,8 +597,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 				<div class="full">
 					<div class="label">Description</div>
-					<textarea id="productDescription" class="input" name="description" required maxlength="100" style="width: 95%;"><?php echo htmlspecialchars($editing['description'] ?? ''); ?></textarea>
-					<div style="margin-top:6px;font-size:0.9rem;color:var(--muted)"><span id="descCount"><?php echo isset($editing['description']) ? mb_strlen($editing['description']) : 0; ?></span>/100</div>
+					<textarea id="productDescription" class="input" name="description" required maxlength="200" style="width: 95%;"><?php echo htmlspecialchars($editing['description'] ?? ''); ?></textarea>
+					<div style="margin-top:6px;font-size:0.9rem;color:var(--muted)"><span id="descCount"><?php echo isset($editing['description']) ? mb_strlen($editing['description']) : 0; ?></span>/200</div>
 				</div>
 
 				<div class="full">

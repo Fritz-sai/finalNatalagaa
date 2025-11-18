@@ -401,13 +401,14 @@ body {
         <form method="GET" action="shop.php" class="search-form">
             <!-- Search Input Wrapper: Contains the search input field with icon -->
             <div class="search-input-wrapper">
-                <input 
-                    type="text" 
-                    name="search" 
-                    placeholder="Search products by name or description..." 
-                    value="<?php echo htmlspecialchars($searchQuery); ?>"  <!-- Display current search query, htmlspecialchars prevents XSS -->
-                     <!-- Disable browser autocomplete for cleaner UX -->
-                
+                <input
+                    id="searchInput"
+                    type="text"
+                    name="search"
+                    placeholder="Search products by name or description..."
+                    value="<?php echo htmlspecialchars($searchQuery); ?>"
+                    autocomplete="off"
+                />
             </div>
             <!-- Search Button: Submits the form to search products -->
             <button type="submit">Search</button>
@@ -500,3 +501,36 @@ body {
 // Render the footer section (includes footer HTML, chatbot, and closing body/html tags)
 renderFooter();
 ?>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const productsGrid = document.querySelector('.products-grid');
+        if (!searchInput || !productsGrid) return;
+
+        // Debounce helper to avoid excessive work while typing
+        function debounce(fn, wait) {
+            let t = null;
+            return function(...args) {
+                clearTimeout(t);
+                t = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
+
+        function filterProducts() {
+            const term = (searchInput.value || '').toLowerCase().trim();
+            productsGrid.querySelectorAll('.product-card').forEach(card => {
+                const txt = card.innerText.toLowerCase();
+                card.style.display = txt.includes(term) ? '' : 'none';
+            });
+        }
+
+        const handleInput = debounce(filterProducts, 120);
+
+        // Run once on load to apply any server-side search term present in the input
+        filterProducts();
+
+        // Live client-side filtering: show/hide product cards based on search term while typing
+        searchInput.addEventListener('input', handleInput);
+    });
+    </script>

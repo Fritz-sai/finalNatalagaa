@@ -160,7 +160,7 @@ if ($resB) {
 
 // Fetch orders awaiting approval
 $pendingOrders = [];
-$resO = $conn->query("SELECT o.id, o.user_id, o.order_date, o.quantity, o.total, o.status, o.order_status, u.name AS customer_name, p.name AS product_name
+$resO = $conn->query("SELECT o.id, o.user_id, o.order_date, o.quantity, o.total, o.shipping_fee, o.status, o.order_status, u.name AS customer_name, p.name AS product_name, p.price AS product_price
 FROM orders o
 JOIN users u ON u.id = o.user_id
 JOIN products p ON p.id = o.product_id
@@ -392,8 +392,9 @@ if ($resO) {
 							<th>Date</th>
 							<th>Customer</th>
 							<th>Product</th>
+							<th>Price</th>
 							<th>Qty</th>
-							<th>Total</th>
+							
 							<th>Status</th>
 							<th>Actions</th>
 						</tr>
@@ -404,8 +405,9 @@ if ($resO) {
 							<td><?php echo htmlspecialchars(date('Y-m-d', strtotime($o['order_date']))); ?></td>
 							<td><?php echo htmlspecialchars($o['customer_name']); ?></td>
 							<td><?php echo htmlspecialchars($o['product_name']); ?></td>
+							<td><?php echo format_currency($o['product_price']); ?></td>
 							<td><?php echo (int)$o['quantity']; ?></td>
-							<td><?php echo format_currency($o['total']); ?></td>
+							
 							<td><span class="status-badge status-pending">Pending</span></td>
 							<td class="actions">
 								<form method="post">
@@ -425,7 +427,7 @@ if ($resO) {
 						</tr>
 						<?php endforeach; ?>
 						<?php if (empty($pendingOrders)): ?>
-							<tr><td colspan="7">No pending orders.</td></tr>
+								<tr><td colspan="8">No pending orders.</td></tr>
 						<?php endif; ?>
 					</tbody>
 				</table>

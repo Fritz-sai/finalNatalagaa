@@ -90,7 +90,7 @@ if ($dateTo)   { $where .= " AND DATE(order_date) <= ?"; $params[] = $dateTo;   
 
 // Only show orders that have been approved (status = 'processing' or 'completed')
 // Orders with status 'pending' should only appear in approvals.php (awaiting approval)
-$sql = "SELECT o.*, u.name as customer_name, p.name as product_name 
+$sql = "SELECT o.*, u.name as customer_name, p.name as product_name, p.price AS product_price 
 FROM orders o 
 JOIN users u ON u.id=o.user_id 
 JOIN products p ON p.id=o.product_id
@@ -324,8 +324,9 @@ require_once __DIR__ . '/includes/sidebar.php';
 					<th>Date</th>
 					<th>Customer</th>
 					<th>Product</th>
+					<th>Price</th>
 					<th>Qty</th>
-					<th>Total</th>
+					
 					<th>Status</th>
 					<th>Action</th>
 				</tr>
@@ -336,8 +337,9 @@ require_once __DIR__ . '/includes/sidebar.php';
 					<td><?php echo htmlspecialchars(date('Y-m-d', strtotime($o['order_date']))); ?></td>
 					<td><?php echo htmlspecialchars($o['customer_name']); ?></td>
 					<td><?php echo htmlspecialchars($o['product_name']); ?></td>
+					<td><?php echo format_currency($o['product_price']); ?></td>
 					<td><?php echo (int)$o['quantity']; ?></td>
-					<td><?php echo format_currency($o['total']); ?></td>
+					
 					<td>
 						<span class="status-badge status-<?php echo htmlspecialchars(str_replace('_','-',$o['order_status'])); ?>">
 							<?php echo htmlspecialchars(ucwords(str_replace('_',' ',$o['order_status']))); ?>
@@ -379,7 +381,7 @@ require_once __DIR__ . '/includes/sidebar.php';
 				</tr>
 				<?php endforeach; ?>
 				<?php if (empty($orders)): ?>
-					<tr><td colspan="7">No orders found.</td></tr>
+					<tr><td colspan="8">No orders found.</td></tr>
 				<?php endif; ?>
 			</tbody>
 		</table>

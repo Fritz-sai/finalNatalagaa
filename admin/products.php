@@ -258,7 +258,7 @@ if ($result) $result->close();
                                 </div>
                             </td>
                             <td><?php echo htmlspecialchars($p['name']); ?></td>
-                            <td><?php echo format_currency($p['price']); ?></td>
+                            <td><?php echo ($p['price']); ?></td>
                             <td><?php echo htmlspecialchars($p['category'] ?? '—'); ?></td>
                             <td><?php echo (int)($p['stock'] ?? 0); ?></td>
                             <td class="actions">

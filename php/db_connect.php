@@ -54,6 +54,8 @@ $tableQueries = [
         description TEXT NOT NULL,
         price DECIMAL(10,2) NOT NULL,
         image VARCHAR(255) DEFAULT 'images/placeholder.png',
+        category VARCHAR(100) NULL,
+        stock INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB",
     "CREATE TABLE IF NOT EXISTS orders (
@@ -139,10 +141,10 @@ function seedProducts(mysqli $conn): void
     }
 
     $products = [
-        ['Premium Screen Protector', 'Ultra-clear tempered glass screen protector with edge-to-edge coverage.', 19.99, 'images/placeholder.png'],
-        ['Fast Wireless Charger', '15W fast wireless charging pad with USB-C compatibility.', 39.99, 'images/placeholder.png'],
-        ['Protective Case', 'Slim shockproof case available in multiple colors.', 24.99, 'images/placeholder.png'],
-        ['Noise Cancelling Earbuds', 'Wireless earbuds with active noise cancellation and 24-hour battery life.', 79.99, 'images/placeholder.png']
+        ['Premium Screen Protector', 'Ultra-clear tempered glass screen protector with edge-to-edge coverage.', 150, 'images/placeholder.png'],
+        ['Fast Wireless Charger', '15W fast wireless charging pad with USB-C compatibility.', 300, 'images/placeholder.png'],
+        ['Protective Case', 'Slim shockproof case available in multiple colors.', 100, 'images/placeholder.png'],
+        ['Noise Cancelling Earbuds', 'Wireless earbuds with active noise cancellation and 24-hour battery life.', 300, 'images/placeholder.png']
     ];
 
     $stmt = $conn->prepare('INSERT INTO products (name, description, price, image) VALUES (?, ?, ?, ?)');
